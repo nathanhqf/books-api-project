@@ -2,7 +2,7 @@
 
 API RESTful para consulta de livros, desenvolvida como parte do **Tech Challenge - Fase 1 - Machine Learning Engineering**. O projeto realiza web scraping do site [Books to Scrape](https://books.toscrape.com/) e disponibiliza os dados através de uma API pública construída com FastAPI.
 
-**Esta versão inclui todos os desafios bônus implementados: Autenticação JWT, Pipeline ML-Ready e Monitoramento & Analytics.**
+**Esta versão inclui todos os desafios bônus implementados: Autenticação JWT, Pipeline ML-Ready e Monitoramento & Analytics. Além disso, inclui boas práticas de desenvolvimento de APIs, incluindo autenticação, monitoramento e preparação para integração com pipelines de Machine Learning.**
 
 ## 🏛️ Arquitetura do Projeto
 
@@ -119,18 +119,6 @@ A API estará disponível em `http://localhost:8000`.
 
 ### Exemplos de Uso
 
-**5. Disparar scraping em background (admin):**
-```bash
-curl -X POST http://localhost:8000/api/v1/scraping/trigger \
-  -H "Authorization: Bearer SEU_TOKEN_ADMIN" 
-```
-
-**6. Consultar status do scraping:**
-```bash
-curl -X GET http://localhost:8000/api/v1/scraping/status \
-  -H "Authorization: Bearer SEU_TOKEN_ADMIN" 
-```
-
 **1. Fazer login e obter token:**
 ```bash
 curl -X POST http://localhost:8000/api/v1/auth/login \
@@ -152,6 +140,18 @@ curl -X GET "http://localhost:8000/api/v1/books/search?title=shadow&category=cri
 **4. Ver logs estruturados:**
 ```bash
 tail -f logs/api.log
+```
+
+**5. Disparar scraping em background (admin):**
+```bash
+curl -X POST http://localhost:8000/api/v1/scraping/trigger \
+  -H "Authorization: Bearer SEU_TOKEN_ADMIN" 
+```
+
+**6. Consultar status do scraping:**
+```bash
+curl -X GET http://localhost:8000/api/v1/scraping/status \
+  -H "Authorization: Bearer SEU_TOKEN_ADMIN" 
 ```
 
 ## 🎯 Desafios do Tech Challenge
@@ -192,6 +192,3 @@ tail -f logs/api.log
 Desenvolvido para o Tech Challenge - Fase 1 - Machine Learning Engineering
 
 ---
-
-**Nota**: Este projeto demonstra boas práticas de desenvolvimento de APIs, incluindo autenticação, monitoramento e preparação para integração com pipelines de Machine Learning.
-
