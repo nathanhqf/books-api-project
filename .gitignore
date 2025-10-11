@@ -1,0 +1,14 @@
+# Arquivos e pastas para ignorar no GitHub
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.env
+.venv/
+logs/
+.DS_Store
+Thumbs.db
+# Ignorar dados se não quiser expor
+# data/*.csv
