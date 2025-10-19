@@ -199,7 +199,16 @@ Os logs permitem análises como:
 - Monitorar uso da API
 - Gerar relatórios de performance
 
-### Integração com Ferramentas
+### Integração com o Streamlit
+
+Para consultar os dados no dashboard, basta rodar no terminal na pasta raiz do projeto o seguinte comando: 
+```bash
+streamlit run dashboard.py
+```
+
+Ao iniciar o servidor do streamlit, basta acessar a URL indicada no terminal e acessar o dashboard.
+
+### Integração com outras Ferramentas
 
 Os logs JSON podem ser facilmente integrados com:
 - **ELK Stack** (Elasticsearch, Logstash, Kibana)

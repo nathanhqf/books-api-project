@@ -23,3 +23,6 @@ python-multipart==0.0.6
 
 # Logs estruturados
 python-json-logger==2.0.7
+
+#Dashboards e Visualizações
+streamlit==1.50.0
