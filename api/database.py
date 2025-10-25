@@ -2,9 +2,10 @@
 Módulo de Acesso aos Dados
 
 Gerencia o carregamento e consulta dos dados dos livros.
+Refatorado para não depender de pandas (reduz bundle no Vercel).
 """
 
-import pandas as pd
+import csv
 from typing import List, Dict, Optional
 from pathlib import Path
 from api.config import DATA_PATH
@@ -21,7 +22,7 @@ class BooksDatabase:
             csv_path: Caminho para o arquivo CSV
         """
         self.csv_path = csv_path
-        self.df: Optional[pd.DataFrame] = None
+        self.records = []  # type: List[Dict]
         self.load_data()
     
     def load_data(self) -> bool:
@@ -36,8 +37,30 @@ class BooksDatabase:
                 print(f"⚠ Arquivo CSV não encontrado: {self.csv_path}")
                 return False
             
-            self.df = pd.read_csv(self.csv_path)
-            print(f"✓ Dados carregados: {len(self.df)} livros")
+            # Lê o CSV usando csv.DictReader
+            with self.csv_path.open(newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                data = []
+                for row in reader:
+                    try:
+                        # Conversões de tipos
+                        row['id'] = int(row.get('id', 0))
+                        price_val = row.get('price', '0')
+                        if isinstance(price_val, str):
+                            price_val = price_val.replace('£', '').strip()
+                        row['price'] = float(price_val) if price_val else 0.0
+                        row['rating'] = int(row.get('rating', 0))
+                        # Padronizar availability
+                        avail = row.get('availability', '')
+                        row['availability'] = 'In Stock' if 'in stock' in avail.lower() else 'Out of Stock'
+                        row['title'] = row.get('title', '')
+                        row['category'] = row.get('category', '')
+                        data.append(row)
+                    except Exception:
+                        continue  # Ignora linhas malformadas
+            
+            self.records = data
+            print(f"✓ Dados carregados: {len(self.records)} livros")
             return True
             
         except Exception as e:
@@ -46,7 +69,7 @@ class BooksDatabase:
     
     def is_loaded(self) -> bool:
         """Verifica se os dados estão carregados"""
-        return self.df is not None and not self.df.empty
+        return bool(self.records)
     
     def get_all_books(self, skip: int = 0, limit: int = 20) -> List[Dict]:
         """
@@ -62,8 +85,7 @@ class BooksDatabase:
         if not self.is_loaded():
             return []
         
-        books_page = self.df.iloc[skip:skip + limit]
-        return books_page.to_dict('records')
+        return self.records[skip:skip + limit]
     
     def get_book_by_id(self, book_id: int) -> Optional[Dict]:
         """
@@ -78,12 +100,10 @@ class BooksDatabase:
         if not self.is_loaded():
             return None
         
-        book = self.df[self.df['id'] == book_id]
-        
-        if book.empty:
-            return None
-        
-        return book.iloc[0].to_dict()
+        for book in self.records:
+            if book.get('id') == book_id:
+                return book
+        return None
     
     def search_books(
         self, 
@@ -107,45 +127,50 @@ class BooksDatabase:
         if not self.is_loaded():
             return []
         
-        result = self.df.copy()
+        filtered = self.records
         
         if title:
-            result = result[result['title'].str.contains(title, case=False, na=False)]
+            filtered = [b for b in filtered if title.lower() in b.get('title', '').lower()]
         
         if category:
-            result = result[result['category'].str.contains(category, case=False, na=False)]
+            filtered = [b for b in filtered if category.lower() in b.get('category', '').lower()]
         
-        result = result.iloc[skip:skip + limit]
-        return result.to_dict('records')
+        return filtered[skip:skip + limit]
     
     def get_all_categories(self) -> List[str]:
         """Retorna lista de todas as categorias únicas"""
         if not self.is_loaded():
             return []
         
-        categories = self.df['category'].unique().tolist()
+        categories = {b.get('category', '') for b in self.records if b.get('category')}
         return sorted(categories)
     
     def get_total_count(self) -> int:
         """Retorna o número total de livros"""
         if not self.is_loaded():
             return 0
-        return len(self.df)
+        return len(self.records)
     
     def get_stats_overview(self) -> Dict:
         """Retorna estatísticas gerais da coleção"""
         if not self.is_loaded():
             return {}
         
+        prices = [b['price'] for b in self.records if isinstance(b.get('price'), (int, float))]
+        ratings = [b['rating'] for b in self.records if isinstance(b.get('rating'), (int, float))]
+        categories = {b.get('category') for b in self.records if b.get('category')}
+        in_stock = sum(1 for b in self.records if b.get('availability') == 'In Stock')
+        out_stock = sum(1 for b in self.records if b.get('availability') == 'Out of Stock')
+        
         return {
-            "total_books": int(len(self.df)),
-            "total_categories": int(self.df['category'].nunique()),
-            "average_price": round(float(self.df['price'].mean()), 2),
-            "min_price": round(float(self.df['price'].min()), 2),
-            "max_price": round(float(self.df['price'].max()), 2),
-            "average_rating": round(float(self.df['rating'].mean()), 2),
-            "in_stock_count": int((self.df['availability'] == 'In Stock').sum()),
-            "out_of_stock_count": int((self.df['availability'] == 'Out of Stock').sum())
+            "total_books": len(self.records),
+            "total_categories": len(categories),
+            "average_price": round(sum(prices) / len(prices), 2) if prices else 0.0,
+            "min_price": round(min(prices), 2) if prices else 0.0,
+            "max_price": round(max(prices), 2) if prices else 0.0,
+            "average_rating": round(sum(ratings) / len(ratings), 2) if ratings else 0.0,
+            "in_stock_count": in_stock,
+            "out_of_stock_count": out_stock
         }
     
     def get_stats_by_category(self) -> List[Dict]:
@@ -153,28 +178,40 @@ class BooksDatabase:
         if not self.is_loaded():
             return []
         
-        stats = self.df.groupby('category').agg({
-            'id': 'count',
-            'price': ['mean', 'min', 'max'],
-            'rating': 'mean'
-        }).reset_index()
+        # Agrupa por categoria
+        grouped = {}
+        for b in self.records:
+            cat = b.get('category', '')
+            if cat not in grouped:
+                grouped[cat] = []
+            grouped[cat].append(b)
         
-        stats.columns = ['category', 'count', 'avg_price', 'min_price', 'max_price', 'avg_rating']
-        stats['avg_price'] = stats['avg_price'].round(2)
-        stats['min_price'] = stats['min_price'].round(2)
-        stats['max_price'] = stats['max_price'].round(2)
-        stats['avg_rating'] = stats['avg_rating'].round(2)
-        stats = stats.sort_values('count', ascending=False)
+        results = []
+        for cat, books in grouped.items():
+            prices = [b['price'] for b in books if isinstance(b.get('price'), (int, float))]
+            ratings = [b['rating'] for b in books if isinstance(b.get('rating'), (int, float))]
+            
+            results.append({
+                'category': cat,
+                'count': len(books),
+                'avg_price': round(sum(prices) / len(prices), 2) if prices else 0.0,
+                'min_price': round(min(prices), 2) if prices else 0.0,
+                'max_price': round(max(prices), 2) if prices else 0.0,
+                'avg_rating': round(sum(ratings) / len(ratings), 2) if ratings else 0.0,
+            })
         
-        return stats.to_dict('records')
+        # Ordena por count decrescente
+        results.sort(key=lambda x: x['count'], reverse=True)
+        return results
     
     def get_top_rated_books(self, limit: int = 10) -> List[Dict]:
         """Retorna os livros com melhor avaliação"""
         if not self.is_loaded():
             return []
         
-        top_books = self.df[self.df['rating'] == 5].sort_values('title').head(limit)
-        return top_books.to_dict('records')
+        top_books = [b for b in self.records if b.get('rating') == 5]
+        top_books.sort(key=lambda x: x.get('title', ''))
+        return top_books[:limit]
     
     def get_books_by_price_range(
         self, 
@@ -187,9 +224,11 @@ class BooksDatabase:
         if not self.is_loaded():
             return []
         
-        result = self.df[(self.df['price'] >= min_price) & (self.df['price'] <= max_price)]
-        result = result.iloc[skip:skip + limit]
-        return result.to_dict('records')
+        filtered = [
+            b for b in self.records 
+            if isinstance(b.get('price'), (int, float)) and min_price <= b['price'] <= max_price
+        ]
+        return filtered[skip:skip + limit]
 
 
 # Instância global do banco de dados (singleton)

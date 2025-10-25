@@ -1,3 +1,4 @@
+# Dependências de produção para a API (Vercel)
 # Framework Web
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
@@ -5,24 +6,11 @@ uvicorn[standard]==0.24.0
 # Validação de Dados
 pydantic==2.5.0
 
-# Web Scraping
-beautifulsoup4==4.12.2
-requests==2.31.0
-lxml==4.9.3
-
-# Manipulação de Dados
-pandas==2.1.3
-
-# Utilidades
-python-multipart==0.0.6
-
 # Autenticação JWT
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
 
 # Logs estruturados
 python-json-logger==2.0.7
 
-#Dashboards e Visualizações
-streamlit==1.50.0
+# Nota: Dependências pesadas (pandas, beautifulsoup4, requests, streamlit)
+# foram movidas para requirements-dev.txt para reduzir o tamanho do bundle no Vercel.
